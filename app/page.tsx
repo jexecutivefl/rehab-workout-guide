@@ -1,229 +1,151 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+/**
+ * RehabTrack Landing Page
+ *
+ * Public landing page with hero, feature highlights, and CTA to get started.
+ * "Get Started" links to /dashboard which triggers auth via the (authenticated) route group.
+ */
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-blue-950 dark:to-purple-950">
-      {/* Hero Section */}
       <div className="container mx-auto px-4 py-16 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
           {/* Badge */}
           <div className="mb-6 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-            <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
+            <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
-            Production-ready starter template
+            Injury-aware workout tracking
           </div>
 
-          {/* Headline */}
+          {/* Hero */}
           <h1 className="mb-6 bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl dark:from-gray-100 dark:via-blue-400 dark:to-purple-400">
-            Build faster with AWS Amplify Gen2
+            Track Your Recovery, Build Your Strength
           </h1>
 
-          {/* Subheadline */}
           <p className="mb-8 text-lg text-gray-600 sm:text-xl dark:text-gray-300">
-            A modern, production-ready starter template with authentication, database, and
-            everything you need to ship your next idea.
+            Smart workout planning that adapts to your injuries. Follow stage-based rehab protocols,
+            log pain levels, and progress safely back to full strength.
           </p>
 
-          {/* CTA Buttons */}
+          {/* CTA */}
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/dashboard">
               <Button size="lg" className="w-full sm:w-auto">
                 Get Started
               </Button>
             </Link>
-            <Link href="https://github.com" target="_blank">
+            <Link href="/login">
               <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                View on GitHub
+                Sign In
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Features Grid */}
+        {/* Feature Highlights */}
         <div className="mx-auto mt-24 max-w-6xl">
           <h2 className="mb-12 text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Everything you need to build and scale
+            Built for recovery
           </h2>
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Feature 1 */}
+            {/* Injury-Aware Workouts */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                AWS Amplify Gen2
+                Injury-Aware Workouts
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Type-safe backend with authentication, database, and storage out of the box.
+                Every exercise is evaluated against your active injuries. Unsafe movements are flagged
+                or substituted automatically.
               </p>
             </div>
 
-            {/* Feature 2 */}
+            {/* Rehab Protocols */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Next.js 15 + React 19
+                Rehab Protocol Tracking
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Latest React with Server Components, streaming, and optimized performance.
+                Follow stage-based rehab protocols for each injury. Track milestones and
+                progress through recovery phases.
               </p>
             </div>
 
-            {/* Feature 3 */}
+            {/* Progress Analytics */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Tailwind CSS 4
+                Progress Analytics
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Modern utility-first CSS with dark mode, responsive design, and custom components.
+                Visualize pain trends, strength gains, and recovery milestones.
+                Get weekly reports on your progress.
               </p>
             </div>
 
-            {/* Feature 4 */}
+            {/* Pain Tracking */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Authentication Ready
+                Pain Monitoring
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Secure user authentication with email/password, social login, and MFA support.
+                Log pain levels before, during, and after workouts. Pain spikes
+                trigger automatic alerts and workout modifications.
               </p>
             </div>
 
-            {/* Feature 5 */}
+            {/* Smart Adaptation */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Type-Safe Database
+                AI-Powered Adaptation
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Full TypeScript support with auto-generated types from your data schema.
+                Workout plans adapt automatically based on your recovery progress,
+                pain levels, and injury stage transitions.
               </p>
             </div>
 
-            {/* Feature 6 */}
+            {/* Exercise Library */}
             <div className="group rounded-2xl border border-gray-200 bg-white p-8 shadow-sm transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <svg
-                  className="h-6 w-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
               <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Production Optimized
+                Exercise Library
               </h3>
               <p className="text-gray-600 dark:text-gray-400">
-                ESLint, Prettier, and best practices baked in. Deploy to AWS Amplify with one click.
+                Comprehensive exercise database with contraindication tagging.
+                Each exercise is mapped to injury safety rules.
               </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tech Stack */}
-        <div className="mx-auto mt-24 max-w-4xl text-center">
-          <h2 className="mb-8 text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Built with modern tools
-          </h2>
-          <div className="flex flex-wrap items-center justify-center gap-6 text-gray-600 dark:text-gray-400">
-            <div className="rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium dark:border-gray-800 dark:bg-gray-900/50">
-              Next.js 15
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium dark:border-gray-800 dark:bg-gray-900/50">
-              React 19
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium dark:border-gray-800 dark:bg-gray-900/50">
-              TypeScript
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium dark:border-gray-800 dark:bg-gray-900/50">
-              Tailwind 4
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium dark:border-gray-800 dark:bg-gray-900/50">
-              AWS Amplify
             </div>
           </div>
         </div>
@@ -231,13 +153,13 @@ export default function Home() {
         {/* Footer CTA */}
         <div className="mx-auto mt-24 max-w-2xl rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-lg dark:border-gray-800 dark:bg-gray-900/50">
           <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Ready to build?
+            Start your recovery journey
           </h2>
           <p className="mb-8 text-lg text-gray-600 dark:text-gray-400">
-            Clone this template and start building your next big idea in minutes.
+            Set up your injury profile and get your first adapted workout plan in minutes.
           </p>
           <Link href="/dashboard">
-            <Button size="lg">Start Building Now</Button>
+            <Button size="lg">Get Started Free</Button>
           </Link>
         </div>
       </div>

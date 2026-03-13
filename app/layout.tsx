@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Universal Starter Template",
+  title: "RehabTrack",
   description:
-    "AWS Amplify Gen2 + Next.js 15 + React 19 starter template with authentication, database, and modern tooling",
+    "Track your recovery and build strength with injury-aware workout planning, rehab protocol tracking, and progress analytics.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
     </html>
   );

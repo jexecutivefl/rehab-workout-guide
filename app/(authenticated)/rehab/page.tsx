@@ -1,30 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useCallback } from "react";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { InjuryStatusCard } from "@/components/rehab/InjuryStatusCard";
 import { getActiveRestrictions } from "@/lib/injuryEngine";
+import { useActiveInjuries, useUpdateInjuryStage } from "@/hooks/useAmplifyData";
 import type { InjuryStage, InjuryContext } from "@/types/index";
+
+const SLUG_MAP: Record<string, string> = {
+  PLANTAR_FASCIITIS: "plantar-fasciitis",
+  SPRAINED_ELBOW: "sprained-elbow",
+};
+
+const SIDE_MAP: Record<string, string> = {
+  PLANTAR_FASCIITIS: "Right Foot",
+  SPRAINED_ELBOW: "Left Elbow",
+};
 
 /**
  * Rehab Overview Page
  *
- * Shows active injury cards with stage info, current restrictions,
- * and links to detail pages for each injury.
- * Uses placeholder data — real injury data fetching comes in Phase 3.
+ * Shows active injury cards from real DB data, persists stage changes,
+ * and displays current restrictions from the injury engine.
  */
 export default function RehabPage() {
-  const [pfStage, setPfStage] = useState<InjuryStage>(2);
-  const [elbowStage, setElbowStage] = useState<InjuryStage>(2);
+  const { data: injuries, isLoading } = useActiveInjuries();
+  const updateStage = useUpdateInjuryStage();
 
-  const injuryContext: InjuryContext = {
-    plantarFasciitis: { stage: pfStage, painLevel: 3, side: "RIGHT" },
-    sprainedElbow: { stage: elbowStage, painLevel: 4, side: "LEFT" },
-  };
+  const handleStageChange = useCallback(
+    (injuryId: string, newStage: InjuryStage) => {
+      updateStage.mutate(
+        { injuryId, stage: newStage },
+        {
+          onSuccess: () => toast.success(`Stage updated to ${newStage}`),
+          onError: (err) => toast.error(`Failed to update stage: ${err.message}`),
+        }
+      );
+    },
+    [updateStage]
+  );
 
-  const restrictions = getActiveRestrictions(injuryContext);
+  const injuryContext = useMemo<InjuryContext>(() => {
+    const pf = injuries?.find((i) => i.injuryType === "PLANTAR_FASCIITIS");
+    const elbow = injuries?.find((i) => i.injuryType === "SPRAINED_ELBOW");
+    return {
+      plantarFasciitis: {
+        stage: (pf?.stage ?? 2) as InjuryStage,
+        painLevel: pf?.currentPainLevel ?? 0,
+        side: "RIGHT",
+      },
+      sprainedElbow: {
+        stage: (elbow?.stage ?? 1) as InjuryStage,
+        painLevel: elbow?.currentPainLevel ?? 0,
+        side: "LEFT",
+      },
+    };
+  }, [injuries]);
+
+  const restrictions = useMemo(
+    () => getActiveRestrictions(injuryContext),
+    [injuryContext]
+  );
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <p className="text-gray-500 dark:text-gray-400">Loading rehab data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -38,39 +85,38 @@ export default function RehabPage() {
       </div>
 
       {/* Injury Status Cards */}
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="space-y-4">
-          <InjuryStatusCard
-            injuryType="PLANTAR_FASCIITIS"
-            stage={pfStage}
-            painLevel={3}
-            side="Right Foot"
-            onsetDate="2025-12-01"
-            onStageChange={setPfStage}
-          />
-          <Link href="/rehab/plantar-fasciitis">
-            <Button variant="primary" className="min-h-[48px] w-full">
-              View Full Protocol
-            </Button>
-          </Link>
-        </div>
+      {injuries && injuries.length > 0 ? (
+        <div className="grid gap-6 sm:grid-cols-2">
+          {injuries.map((injury) => {
+            const slug = SLUG_MAP[injury.injuryType ?? ""] ?? "";
+            const side = SIDE_MAP[injury.injuryType ?? ""] ?? "";
 
-        <div className="space-y-4">
-          <InjuryStatusCard
-            injuryType="SPRAINED_ELBOW"
-            stage={elbowStage}
-            painLevel={4}
-            side="Left Elbow"
-            onsetDate="2026-01-15"
-            onStageChange={setElbowStage}
-          />
-          <Link href="/rehab/sprained-elbow">
-            <Button variant="primary" className="min-h-[48px] w-full">
-              View Full Protocol
-            </Button>
-          </Link>
+            return (
+              <div key={injury.id} className="space-y-4">
+                <InjuryStatusCard
+                  injuryType={injury.injuryType as "PLANTAR_FASCIITIS" | "SPRAINED_ELBOW"}
+                  stage={(injury.stage ?? 1) as InjuryStage}
+                  painLevel={injury.currentPainLevel ?? 0}
+                  side={side}
+                  onsetDate={injury.onsetDate ?? undefined}
+                  onStageChange={(s) => handleStageChange(injury.id, s)}
+                />
+                <Link href={`/rehab/${slug}`}>
+                  <Button variant="primary" className="min-h-[48px] w-full">
+                    View Full Protocol
+                  </Button>
+                </Link>
+              </div>
+            );
+          })}
         </div>
-      </div>
+      ) : (
+        <Card className="mb-8">
+          <CardContent className="py-8 text-center text-gray-500 dark:text-gray-400">
+            No active injuries recorded. Add injuries during onboarding or in your profile.
+          </CardContent>
+        </Card>
+      )}
 
       {/* Active Restrictions */}
       <Card className="mt-8">

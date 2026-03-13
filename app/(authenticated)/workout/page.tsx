@@ -1,55 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-// ─── Placeholder data ────────────────────────────────────────
-const RECENT_SESSIONS = [
-  {
-    id: "1",
-    title: "Upper Body - Rehab Adapted",
-    date: "Mar 12",
-    exercises: 5,
-    durationMin: 42,
-    avgPain: 2.5,
-    type: "UPPER_BODY" as const,
-  },
-  {
-    id: "2",
-    title: "Lower Body - Light",
-    date: "Mar 10",
-    exercises: 4,
-    durationMin: 35,
-    avgPain: 3,
-    type: "LOWER_BODY" as const,
-  },
-  {
-    id: "3",
-    title: "Rehab Only Session",
-    date: "Mar 9",
-    exercises: 3,
-    durationMin: 20,
-    avgPain: 2,
-    type: "REHAB_FOCUSED" as const,
-  },
-  {
-    id: "4",
-    title: "Active Recovery",
-    date: "Mar 7",
-    exercises: 4,
-    durationMin: 25,
-    avgPain: 1.5,
-    type: "ACTIVE_RECOVERY" as const,
-  },
-];
-
-const QUICK_STATS = {
-  sessionsThisWeek: 3,
-  totalThisMonth: 11,
-  avgPainThisWeek: 2.3,
-};
+import { useWorkoutSessions } from "@/hooks/useAmplifyData";
 
 const TYPE_COLORS: Record<string, string> = {
   UPPER_BODY: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
@@ -57,6 +13,7 @@ const TYPE_COLORS: Record<string, string> = {
   REHAB_FOCUSED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
   ACTIVE_RECOVERY: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
   CARDIO_ONLY: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+  FULL_BODY: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -65,6 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
   REHAB_FOCUSED: "Rehab",
   ACTIVE_RECOVERY: "Recovery",
   CARDIO_ONLY: "Cardio",
+  FULL_BODY: "Full Body",
 };
 
 /**
@@ -72,10 +30,51 @@ const TYPE_LABELS: Record<string, string> = {
  *
  * Entry point for workout functionality:
  * - Start today's workout
- * - Quick stats
- * - Recent sessions list
+ * - Quick stats from real data
+ * - Recent sessions list from Amplify
  */
 export default function WorkoutPage() {
+  const { data: sessions, isLoading } = useWorkoutSessions(50);
+
+  const recentSessions = useMemo(() => {
+    if (!sessions) return [];
+    return [...sessions]
+      .filter((s) => s.startedAt)
+      .sort((a, b) => new Date(b.startedAt!).getTime() - new Date(a.startedAt!).getTime())
+      .slice(0, 4);
+  }, [sessions]);
+
+  const quickStats = useMemo(() => {
+    if (!sessions) return { sessionsThisWeek: 0, totalThisMonth: 0, avgPainThisWeek: 0 };
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const thisWeek = sessions.filter(
+      (s) => s.startedAt && new Date(s.startedAt) >= startOfWeek
+    );
+    const thisMonth = sessions.filter(
+      (s) => s.startedAt && new Date(s.startedAt) >= startOfMonth
+    );
+
+    const painValues = thisWeek
+      .map((s) => s.postSessionPainLevel)
+      .filter((p): p is number => p != null);
+    const avgPain = painValues.length > 0
+      ? Math.round((painValues.reduce((a, b) => a + b, 0) / painValues.length) * 10) / 10
+      : 0;
+
+    return {
+      sessionsThisWeek: thisWeek.length,
+      totalThisMonth: thisMonth.length,
+      avgPainThisWeek: avgPain,
+    };
+  }, [sessions]);
+
   return (
     <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
@@ -102,10 +101,10 @@ export default function WorkoutPage() {
             />
           </svg>
           <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Today&apos;s Workout Ready
+            Ready to Train?
           </h2>
           <p className="mb-6 max-w-md text-gray-600 dark:text-gray-400">
-            Upper body session with modifications for your elbow and plantar fasciitis rehab exercises included.
+            Your workout will be auto-generated based on your injury stages and recovery progress.
           </p>
           <Link href="/workout/active">
             <Button size="lg" className="min-h-[48px] text-lg px-8">
@@ -121,7 +120,7 @@ export default function WorkoutPage() {
           <CardContent className="pt-6 text-center">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">This Week</p>
             <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {QUICK_STATS.sessionsThisWeek}
+              {isLoading ? "—" : quickStats.sessionsThisWeek}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">sessions</p>
           </CardContent>
@@ -130,7 +129,7 @@ export default function WorkoutPage() {
           <CardContent className="pt-6 text-center">
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">This Month</p>
             <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-gray-100">
-              {QUICK_STATS.totalThisMonth}
+              {isLoading ? "—" : quickStats.totalThisMonth}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">sessions</p>
           </CardContent>
@@ -140,11 +139,11 @@ export default function WorkoutPage() {
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Pain</p>
             <p className={cn(
               "mt-1 text-3xl font-bold",
-              QUICK_STATS.avgPainThisWeek <= 3
+              quickStats.avgPainThisWeek <= 3
                 ? "text-green-600 dark:text-green-400"
                 : "text-yellow-600 dark:text-yellow-400"
             )}>
-              {QUICK_STATS.avgPainThisWeek}
+              {isLoading ? "—" : quickStats.avgPainThisWeek}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">this week</p>
           </CardContent>
@@ -160,29 +159,58 @@ export default function WorkoutPage() {
       </div>
 
       <div className="space-y-3">
-        {RECENT_SESSIONS.map((session) => (
-          <Card key={session.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-base">{session.title}</CardTitle>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      TYPE_COLORS[session.type] ?? "bg-gray-100 text-gray-800"
-                    )}
-                  >
-                    {TYPE_LABELS[session.type] ?? session.type}
-                  </span>
-                </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{session.date}</span>
-              </div>
-              <CardDescription>
-                {session.exercises} exercises - {session.durationMin} min - Avg pain: {session.avgPain}/10
-              </CardDescription>
-            </CardHeader>
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-8 text-center text-gray-500 dark:text-gray-400">
+              Loading sessions...
+            </CardContent>
           </Card>
-        ))}
+        ) : recentSessions.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-gray-500 dark:text-gray-400">
+              No sessions yet. Start your first workout above!
+            </CardContent>
+          </Card>
+        ) : (
+          recentSessions.map((session) => {
+            const dateStr = session.startedAt
+              ? new Date(session.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : "";
+            const sessionType = session.sessionType ?? "UPPER_BODY";
+
+            return (
+              <Card key={session.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-base">
+                        {TYPE_LABELS[sessionType] ?? sessionType} Session
+                      </CardTitle>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                          TYPE_COLORS[sessionType] ?? "bg-gray-100 text-gray-800"
+                        )}
+                      >
+                        {TYPE_LABELS[sessionType] ?? sessionType}
+                      </span>
+                      {session.flaggedForReview && (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                          Flagged
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{dateStr}</span>
+                  </div>
+                  <CardDescription>
+                    {session.durationMinutes ? `${session.durationMinutes} min` : "—"}
+                    {session.postSessionPainLevel != null ? ` - Pain: ${session.postSessionPainLevel}/10` : ""}
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            );
+          })
+        )}
       </div>
     </div>
   );

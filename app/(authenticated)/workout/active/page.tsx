@@ -13,27 +13,16 @@ import { WorkoutSessionHeader } from "@/components/workout/WorkoutSessionHeader"
 import { WorkoutComplete } from "@/components/workout/WorkoutComplete";
 import { generateWeeklyPlan } from "@/lib/workoutGenerator";
 import { shouldFlagSession } from "@/lib/injuryEngine";
+import { useUserProfile, useActiveInjuries } from "@/hooks/useAmplifyData";
+import { useSaveSession } from "@/hooks/useSaveSession";
 import type {
   PlannedExercise,
   CompletedSet,
   InjuryContext,
+  InjuryStage,
   UserProfileData,
+  GymLocation,
 } from "@/types/index";
-
-// ─── Hardcoded context (replaced by real data in Phase 3) ────
-const HARDCODED_PROFILE: UserProfileData = {
-  weightLbs: 185,
-  heightIn: 70,
-  age: 32,
-  gymPreference: "LA_FITNESS",
-  onWegovy: true,
-  wegovyStartDate: "2025-12-01",
-};
-
-const HARDCODED_INJURY_CONTEXT: InjuryContext = {
-  plantarFasciitis: { stage: 2, painLevel: 3, side: "RIGHT" },
-  sprainedElbow: { stage: 1, painLevel: 5, side: "LEFT" },
-};
 
 // ─── Flow States ─────────────────────────────────────────────
 type FlowState = "PRE_CHECK" | "EXERCISING" | "RESTING" | "COMPLETE";
@@ -49,8 +38,45 @@ function ActiveWorkoutFlow() {
     flagSession,
   } = useSession();
 
+  const { data: userProfile } = useUserProfile();
+  const { data: injuries } = useActiveInjuries();
+  const saveSession = useSaveSession();
+
+  // Build profile and injury context from real data
+  const profile = useMemo<UserProfileData>(() => {
+    if (!userProfile) {
+      return { weightLbs: 185, age: 32, gymPreference: "LA_FITNESS" as GymLocation, onWegovy: false };
+    }
+    return {
+      weightLbs: userProfile.weightLbs ?? 185,
+      heightIn: userProfile.heightIn ?? undefined,
+      age: userProfile.age ?? 30,
+      gymPreference: (userProfile.gymPreference ?? "LA_FITNESS") as GymLocation,
+      onWegovy: userProfile.onWegovy ?? false,
+      wegovyStartDate: userProfile.wegovyStartDate ?? undefined,
+    };
+  }, [userProfile]);
+
+  const injuryContext = useMemo<InjuryContext>(() => {
+    const pf = injuries?.find((i) => i.injuryType === "PLANTAR_FASCIITIS");
+    const elbow = injuries?.find((i) => i.injuryType === "SPRAINED_ELBOW");
+    return {
+      plantarFasciitis: {
+        stage: (pf?.stage ?? 2) as InjuryStage,
+        painLevel: pf?.currentPainLevel ?? 0,
+        side: "RIGHT",
+      },
+      sprainedElbow: {
+        stage: (elbow?.stage ?? 1) as InjuryStage,
+        painLevel: elbow?.currentPainLevel ?? 0,
+        side: "LEFT",
+      },
+    };
+  }, [injuries]);
+
   const [flowState, setFlowState] = useState<FlowState>("PRE_CHECK");
   const [exercises, setExercises] = useState<PlannedExercise[]>([]);
+  const [sessionFlagReason, setSessionFlagReason] = useState<string | undefined>();
 
   // ─── PRE_CHECK: generate exercises and start session ────
   const handlePreSessionStart = useCallback(
@@ -67,20 +93,16 @@ function ActiveWorkoutFlow() {
           },
         });
 
-        // If pain >= 7, flag and allow user to still proceed (PreSessionCheck handles the acknowledgment)
         if (pain >= 7) {
           flagSession(flagResult.reason);
+          setSessionFlagReason(flagResult.reason);
         }
       }
 
-      // Generate today's exercises using the workout generator
-      const weekPlan = generateWeeklyPlan(
-        HARDCODED_PROFILE,
-        HARDCODED_INJURY_CONTEXT,
-        1
-      );
+      // Generate today's exercises using the workout generator with real data
+      const weekPlan = generateWeeklyPlan(profile, injuryContext, 1);
 
-      // Pick today's day plan (use first non-REST day for demo)
+      // Pick today's day plan (use first non-REST day)
       const todayPlan = weekPlan.find((d) => d.exercises.length > 0);
       const generatedExercises = todayPlan?.exercises ?? [];
 
@@ -92,11 +114,12 @@ function ActiveWorkoutFlow() {
       setExercises(generatedExercises);
 
       // Start the session
-      startSession(generatedExercises, "LA_FITNESS", pain, energy);
+      const gym = profile.gymPreference;
+      startSession(generatedExercises, gym, pain, energy);
       setFlowState("EXERCISING");
       toast.success("Workout started! Let's go.");
     },
-    [startSession, flagSession]
+    [startSession, flagSession, profile, injuryContext]
   );
 
   // ─── Current exercise tracking ─────────────────────────
@@ -181,13 +204,42 @@ function ActiveWorkoutFlow() {
     handleNextExercise();
   }, [handleNextExercise]);
 
-  // ─── Save completed session ────────────────────────────
+  // ─── Save completed session to Amplify ──────────────────
   const handleSaveSession = useCallback(
-    (_postPain: number, _postEnergy: number, _notes?: string) => {
-      // Placeholder save — will integrate with Amplify Data in Phase 3
-      toast.success("Session saved! Great workout.");
+    (postPain: number, postEnergy: number, notes?: string) => {
+      if (!state.session) return;
+
+      const session = state.session;
+      const durationMs = Date.now() - session.startedAt.getTime();
+      const durationMinutes = Math.round(durationMs / 60000);
+
+      saveSession.mutate(
+        {
+          sessionType: "UPPER_BODY",
+          gym: session.gym,
+          startedAt: session.startedAt.toISOString(),
+          completedAt: new Date().toISOString(),
+          durationMinutes,
+          preSessionPainLevel: session.preSessionPain,
+          postSessionPainLevel: postPain,
+          preSessionEnergy: session.preSessionEnergy,
+          postSessionEnergy: postEnergy,
+          flaggedForReview: !!sessionFlagReason,
+          flagReason: sessionFlagReason,
+          notes,
+          exercises: session.completedExercises,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Session saved! Great workout.");
+          },
+          onError: (err) => {
+            toast.error(`Failed to save session: ${err.message}`);
+          },
+        }
+      );
     },
-    []
+    [state.session, saveSession, sessionFlagReason]
   );
 
   // ─── Render ────────────────────────────────────────────

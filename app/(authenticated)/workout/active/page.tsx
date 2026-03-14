@@ -337,19 +337,18 @@ function ActiveWorkoutFlow() {
 
           {/* Navigation buttons for moving between exercises */}
           <div className="flex gap-3">
-            {!isFirstExercise && (
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  prevExercise();
-                  setFlowState("EXERCISING");
-                }}
-                className="flex-1 min-h-[48px]"
-              >
-                Previous Exercise
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isFirstExercise}
+              onClick={() => {
+                prevExercise();
+                setFlowState("EXERCISING");
+              }}
+              className="flex-1 min-h-[48px]"
+            >
+              Previous Exercise
+            </Button>
             {!isLastExercise && (
               <Button
                 variant="outline"

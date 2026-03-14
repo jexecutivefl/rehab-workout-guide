@@ -5,11 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-// STUB: replace with Agent C output when ready
-// import { shouldFlagSession } from '@/lib/injuryEngine';
+export type InjuryPainEntry = {
+  injuryId: string;
+  injuryType: string;
+  side: string;
+  label: string;
+};
 
 type PreSessionCheckProps = {
-  onStart: (pain: number, energy: number) => void;
+  injuries: InjuryPainEntry[];
+  onStart: (painByInjury: Record<string, number>, energy: number) => void;
 };
 
 const PAIN_LABELS: Record<number, string> = {
@@ -26,14 +31,29 @@ const PAIN_LABELS: Record<number, string> = {
   10: "Worst Possible",
 };
 
-export function PreSessionCheck({ onStart }: PreSessionCheckProps) {
-  const [pain, setPain] = useState(0);
+function painColor(level: number) {
+  if (level <= 3) return "text-green-600 dark:text-green-400";
+  if (level < 7) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+export function PreSessionCheck({ injuries, onStart }: PreSessionCheckProps) {
+  const [painLevels, setPainLevels] = useState<Record<string, number>>(
+    () => Object.fromEntries(injuries.map((inj) => [inj.injuryId, 0]))
+  );
   const [energy, setEnergy] = useState(5);
   const [highPainAcknowledged, setHighPainAcknowledged] = useState(false);
 
-  const isHighPain = pain >= 7;
+  const painValues = Object.values(painLevels) as number[];
+  const maxPain = Math.max(0, ...painValues);
+  const isHighPain = maxPain >= 7;
   const isLowEnergy = energy <= 3;
   const canStart = !isHighPain || highPainAcknowledged;
+
+  const updatePain = (injuryId: string, value: number) => {
+    setPainLevels((prev: Record<string, number>) => ({ ...prev, [injuryId]: value }));
+    setHighPainAcknowledged(false);
+  };
 
   return (
     <Card className="w-full max-w-lg mx-auto">
@@ -45,49 +65,91 @@ export function PreSessionCheck({ onStart }: PreSessionCheckProps) {
       </CardHeader>
 
       <CardContent className="space-y-8">
-        {/* Pain Level Slider */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="pain-slider"
-              className="text-sm font-medium text-gray-900 dark:text-gray-100"
-            >
-              Current Pain Level
-            </label>
-            <span
-              className={cn(
-                "text-lg font-bold tabular-nums min-w-[3ch] text-right",
-                pain <= 3 && "text-green-600 dark:text-green-400",
-                pain > 3 && pain < 7 && "text-yellow-600 dark:text-yellow-400",
-                pain >= 7 && "text-red-600 dark:text-red-400"
-              )}
-            >
-              {pain}
-            </span>
+        {/* Per-Injury Pain Level Sliders */}
+        {injuries.map((injury) => {
+          const pain = painLevels[injury.injuryId] ?? 0;
+          const sliderId = `pain-slider-${injury.injuryId}`;
+          return (
+            <div key={injury.injuryId} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor={sliderId}
+                  className="text-sm font-medium text-gray-900 dark:text-gray-100"
+                >
+                  {injury.label} Pain
+                </label>
+                <span
+                  className={cn(
+                    "text-lg font-bold tabular-nums min-w-[3ch] text-right",
+                    painColor(pain)
+                  )}
+                >
+                  {pain}
+                </span>
+              </div>
+              <input
+                id={sliderId}
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={pain}
+                onChange={(e) => updatePain(injury.injuryId, Number(e.target.value))}
+                className="w-full h-3 rounded-full appearance-none cursor-pointer accent-blue-600 bg-gray-200 dark:bg-gray-700"
+                style={{ minHeight: "48px" }}
+              />
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>0 - None</span>
+                <span>5 - Moderate</span>
+                <span>10 - Severe</span>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                {PAIN_LABELS[pain]}
+              </p>
+            </div>
+          );
+        })}
+
+        {/* Fallback: general pain if no injuries loaded */}
+        {injuries.length === 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="pain-slider-general"
+                className="text-sm font-medium text-gray-900 dark:text-gray-100"
+              >
+                Current Pain Level
+              </label>
+              <span
+                className={cn(
+                  "text-lg font-bold tabular-nums min-w-[3ch] text-right",
+                  painColor(painLevels["general"] ?? 0)
+                )}
+              >
+                {painLevels["general"] ?? 0}
+              </span>
+            </div>
+            <input
+              id="pain-slider-general"
+              type="range"
+              min={0}
+              max={10}
+              step={1}
+              value={painLevels["general"] ?? 0}
+              onChange={(e) => updatePain("general", Number(e.target.value))}
+              className="w-full h-3 rounded-full appearance-none cursor-pointer accent-blue-600 bg-gray-200 dark:bg-gray-700"
+              style={{ minHeight: "48px" }}
+            />
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>0 - None</span>
+              <span>5 - Moderate</span>
+              <span>10 - Severe</span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {PAIN_LABELS[painLevels["general"] ?? 0]}
+            </p>
           </div>
-          <input
-            id="pain-slider"
-            type="range"
-            min={0}
-            max={10}
-            step={1}
-            value={pain}
-            onChange={(e) => {
-              setPain(Number(e.target.value));
-              setHighPainAcknowledged(false);
-            }}
-            className="w-full h-3 rounded-full appearance-none cursor-pointer accent-blue-600 bg-gray-200 dark:bg-gray-700"
-            style={{ minHeight: "48px" }}
-          />
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>0 - None</span>
-            <span>5 - Moderate</span>
-            <span>10 - Severe</span>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {PAIN_LABELS[pain]}
-          </p>
-        </div>
+        )}
 
         {/* Energy Level Slider */}
         <div className="space-y-3">
@@ -161,7 +223,7 @@ export function PreSessionCheck({ onStart }: PreSessionCheckProps) {
         <Button
           size="lg"
           disabled={!canStart}
-          onClick={() => onStart(pain, energy)}
+          onClick={() => onStart(painLevels, energy)}
           className="w-full min-h-[48px]"
         >
           Start Workout

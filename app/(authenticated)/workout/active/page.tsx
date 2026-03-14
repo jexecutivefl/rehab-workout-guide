@@ -5,7 +5,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { SessionProvider, useSession } from "@/stores/sessionStore";
-import { PreSessionCheck } from "@/components/workout/PreSessionCheck";
+import { PreSessionCheck, type InjuryPainEntry } from "@/components/workout/PreSessionCheck";
 import { ExerciseCard } from "@/components/workout/ExerciseCard";
 import { SetLogger } from "@/components/workout/SetLogger";
 import { RestTimer } from "@/components/workout/RestTimer";
@@ -13,7 +13,7 @@ import { WorkoutSessionHeader } from "@/components/workout/WorkoutSessionHeader"
 import { WorkoutComplete } from "@/components/workout/WorkoutComplete";
 import { generateWeeklyPlan } from "@/lib/workoutGenerator";
 import { shouldFlagSession } from "@/lib/injuryEngine";
-import { useUserProfile, useActiveInjuries } from "@/hooks/useAmplifyData";
+import { useUserProfile, useActiveInjuries, useUpdateInjuryPain } from "@/hooks/useAmplifyData";
 import { useSaveSession } from "@/hooks/useSaveSession";
 import type {
   PlannedExercise,
@@ -41,6 +41,7 @@ function ActiveWorkoutFlow() {
   const { data: userProfile } = useUserProfile();
   const { data: injuries } = useActiveInjuries();
   const saveSession = useSaveSession();
+  const updateInjuryPain = useUpdateInjuryPain();
 
   // Build profile and injury context from real data
   const profile = useMemo<UserProfileData>(() => {
@@ -74,15 +75,40 @@ function ActiveWorkoutFlow() {
     };
   }, [injuries]);
 
+  // Build injury entries for per-injury pain sliders
+  const INJURY_LABELS: Record<string, string> = {
+    PLANTAR_FASCIITIS: "Right Foot (Plantar Fasciitis)",
+    SPRAINED_ELBOW: "Left Elbow (Ligament/Tendon)",
+  };
+
+  const injuryEntries = useMemo<InjuryPainEntry[]>(() => {
+    if (!injuries?.length) return [];
+    return injuries.map((inj) => ({
+      injuryId: inj.id,
+      injuryType: inj.injuryType ?? "",
+      side: inj.side ?? "",
+      label: INJURY_LABELS[inj.injuryType ?? ""] ?? inj.injuryType ?? "Injury",
+    }));
+  }, [injuries]);
+
   const [flowState, setFlowState] = useState<FlowState>("PRE_CHECK");
   const [exercises, setExercises] = useState<PlannedExercise[]>([]);
   const [sessionFlagReason, setSessionFlagReason] = useState<string | undefined>();
 
   // ─── PRE_CHECK: generate exercises and start session ────
   const handlePreSessionStart = useCallback(
-    (pain: number, energy: number) => {
-      // Check if session should be flagged
-      const flagResult = shouldFlagSession(pain, energy, []);
+    (painByInjury: Record<string, number>, energy: number) => {
+      const maxPain = Math.max(0, ...Object.values(painByInjury));
+
+      // Update each injury's currentPainLevel in the DB
+      for (const [injuryId, painLevel] of Object.entries(painByInjury)) {
+        if (injuryId !== "general") {
+          updateInjuryPain.mutate({ injuryId, painLevel });
+        }
+      }
+
+      // Check if session should be flagged (using max pain across injuries)
+      const flagResult = shouldFlagSession(maxPain, energy, []);
       if (flagResult.flag) {
         toast(flagResult.reason, {
           icon: "\u26A0\uFE0F",
@@ -93,14 +119,35 @@ function ActiveWorkoutFlow() {
           },
         });
 
-        if (pain >= 7) {
+        if (maxPain >= 7) {
           flagSession(flagResult.reason);
           setSessionFlagReason(flagResult.reason);
         }
       }
 
+      // Build updated injury context with pre-session pain values
+      const updatedInjuryContext = { ...injuryContext };
+      if (injuries?.length) {
+        for (const inj of injuries) {
+          const reportedPain = painByInjury[inj.id];
+          if (reportedPain !== undefined) {
+            if (inj.injuryType === "PLANTAR_FASCIITIS") {
+              updatedInjuryContext.plantarFasciitis = {
+                ...updatedInjuryContext.plantarFasciitis,
+                painLevel: reportedPain,
+              };
+            } else if (inj.injuryType === "SPRAINED_ELBOW") {
+              updatedInjuryContext.sprainedElbow = {
+                ...updatedInjuryContext.sprainedElbow,
+                painLevel: reportedPain,
+              };
+            }
+          }
+        }
+      }
+
       // Generate today's exercises using the workout generator with real data
-      const weekPlan = generateWeeklyPlan(profile, injuryContext, 1);
+      const weekPlan = generateWeeklyPlan(profile, updatedInjuryContext, 1);
 
       // Pick today's day plan (use first non-REST day)
       const todayPlan = weekPlan.find((d) => d.exercises.length > 0);
@@ -113,13 +160,13 @@ function ActiveWorkoutFlow() {
 
       setExercises(generatedExercises);
 
-      // Start the session
+      // Start the session (use max pain for overall session tracking)
       const gym = profile.gymPreference;
-      startSession(generatedExercises, gym, pain, energy);
+      startSession(generatedExercises, gym, maxPain, energy);
       setFlowState("EXERCISING");
       toast.success("Workout started! Let's go.");
     },
-    [startSession, flagSession, profile, injuryContext]
+    [startSession, flagSession, profile, injuryContext, injuries, updateInjuryPain]
   );
 
   // ─── Current exercise tracking ─────────────────────────
@@ -261,7 +308,7 @@ function ActiveWorkoutFlow() {
 
       {/* PRE_CHECK */}
       {flowState === "PRE_CHECK" && (
-        <PreSessionCheck onStart={handlePreSessionStart} />
+        <PreSessionCheck injuries={injuryEntries} onStart={handlePreSessionStart} />
       )}
 
       {/* EXERCISING */}

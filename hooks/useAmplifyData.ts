@@ -115,6 +115,31 @@ export function useUpdateInjuryStage() {
   });
 }
 
+export function useUpdateInjuryPain() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      injuryId,
+      painLevel,
+    }: {
+      injuryId: string;
+      painLevel: number;
+    }) => {
+      const { data, errors } = await client.models.ActiveInjury.update({
+        id: injuryId,
+        currentPainLevel: painLevel,
+        lastAssessedAt: new Date().toISOString(),
+      });
+      if (errors?.length) throw new Error(errors[0].message);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.activeInjuries });
+    },
+  });
+}
+
 // ─── Workout Sessions ───────────────────────────────────────
 
 export function useWorkoutSessions(limit?: number) {

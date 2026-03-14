@@ -33,6 +33,7 @@ function ActiveWorkoutFlow() {
     startSession,
     logSet,
     skipExercise,
+    prevExercise,
     nextExercise,
     completeSession,
     flagSession,
@@ -172,6 +173,7 @@ function ActiveWorkoutFlow() {
   // ─── Current exercise tracking ─────────────────────────
   const currentIndex = state.session?.currentExerciseIndex ?? 0;
   const currentExercise = exercises[currentIndex];
+  const isFirstExercise = currentIndex === 0;
   const isLastExercise = currentIndex >= exercises.length - 1;
 
   const completedSetsForCurrent = useMemo(() => {
@@ -333,20 +335,35 @@ function ActiveWorkoutFlow() {
             onLogSet={handleLogSet}
           />
 
-          {/* Manual next exercise button (for when user wants to move on before finishing all sets) */}
-          {!isLastExercise && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => {
-                nextExercise();
-                setFlowState("EXERCISING");
-              }}
-              className="w-full min-h-[48px]"
-            >
-              Next Exercise
-            </Button>
-          )}
+          {/* Navigation buttons for moving between exercises */}
+          <div className="flex gap-3">
+            {!isFirstExercise && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  prevExercise();
+                  setFlowState("EXERCISING");
+                }}
+                className="flex-1 min-h-[48px]"
+              >
+                Previous Exercise
+              </Button>
+            )}
+            {!isLastExercise && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => {
+                  nextExercise();
+                  setFlowState("EXERCISING");
+                }}
+                className="flex-1 min-h-[48px]"
+              >
+                Next Exercise
+              </Button>
+            )}
+          </div>
 
           {/* Finish early */}
           <Button

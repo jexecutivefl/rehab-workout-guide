@@ -42,6 +42,7 @@ type SessionAction =
     }
   | { type: "LOG_SET"; payload: { exerciseId: string; set: CompletedSet } }
   | { type: "SKIP_EXERCISE"; payload: { exerciseId: string; reason: string } }
+  | { type: "PREV_EXERCISE" }
   | { type: "NEXT_EXERCISE" }
   | { type: "COMPLETE_SESSION" }
   | { type: "FLAG_SESSION"; payload: { reason: string } };
@@ -114,6 +115,15 @@ function sessionReducer(
       };
     }
 
+    case "PREV_EXERCISE": {
+      if (!state.session) return state;
+      const prevIdx = Math.max(state.session.currentExerciseIndex - 1, 0);
+      return {
+        ...state,
+        session: { ...state.session, currentExerciseIndex: prevIdx },
+      };
+    }
+
     case "NEXT_EXERCISE": {
       if (!state.session) return state;
       const nextIdx = Math.min(
@@ -154,6 +164,7 @@ type SessionContextValue = {
   ) => void;
   logSet: (exerciseId: string, set: CompletedSet) => void;
   skipExercise: (exerciseId: string, reason: string) => void;
+  prevExercise: () => void;
   nextExercise: () => void;
   completeSession: () => ActiveSession | null;
   flagSession: (reason: string) => void;
@@ -188,6 +199,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SKIP_EXERCISE", payload: { exerciseId, reason } });
   }, []);
 
+  const prevExercise = useCallback(() => {
+    dispatch({ type: "PREV_EXERCISE" });
+  }, []);
+
   const nextExercise = useCallback(() => {
     dispatch({ type: "NEXT_EXERCISE" });
   }, []);
@@ -208,6 +223,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         startSession,
         logSet,
         skipExercise,
+        prevExercise,
         nextExercise,
         completeSession,
         flagSession,

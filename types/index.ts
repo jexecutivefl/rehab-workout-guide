@@ -34,12 +34,27 @@ export type ExerciseCategory =
   | "STRETCH"
   | "CORE"
   | "COOLDOWN";
-export type InjuryType = "PLANTAR_FASCIITIS" | "SPRAINED_ELBOW";
+export type InjuryType = "PLANTAR_FASCIITIS" | "SPRAINED_ELBOW" | "SHOULDER_INSTABILITY";
 
 // ─── Injury Context ──────────────────────────────────────────
 export type InjuryContext = {
   plantarFasciitis: { stage: InjuryStage; painLevel: number; side: "RIGHT" };
   sprainedElbow: { stage: InjuryStage; painLevel: number; side: "LEFT" };
+  shoulderInstability: { stage: InjuryStage; painLevel: number; side: "LEFT" };
+};
+
+// ─── Daily Check-In ──────────────────────────────────────────
+export type DailyCheckIn = {
+  date: string;
+  overallPain: number;        // 0-10
+  elbowPain: number;          // 0-10
+  shoulderPain: number;       // 0-10
+  footPain: number;           // 0-10
+  energyLevel: number;        // 1-10
+  sleepQuality: number;       // 1-10
+  stiffnessLevel: number;     // 0-10
+  readinessScore: number;     // computed: weighted avg (0-100)
+  notes?: string;
 };
 
 export type SafetyResult = {

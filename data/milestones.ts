@@ -91,4 +91,47 @@ export const milestones: Milestone[] = [
     unlocks: "All upper body exercises (avoid full lockout under heavy load)",
     achieved: false,
   },
+
+  // ─── Shoulder Instability Milestones ───────────────────────────
+
+  {
+    id: "shoulder-m1-isometric-hold",
+    injuryType: "SHOULDER_INSTABILITY",
+    label: "Pain-Free Isometric Holds",
+    requiredStage: 1,
+    unlocks: "Isometric rotator cuff ER/IR at 50% effort",
+    achieved: false,
+  },
+  {
+    id: "shoulder-m2-band-resistance",
+    injuryType: "SHOULDER_INSTABILITY",
+    label: "Band Resistance Cleared",
+    requiredStage: 2,
+    unlocks: "Band ER/IR, pull-aparts, wall slides, scapular control work",
+    achieved: false,
+  },
+  {
+    id: "shoulder-m3-light-overhead",
+    injuryType: "SHOULDER_INSTABILITY",
+    label: "Light Overhead Cleared",
+    requiredStage: 3,
+    unlocks: "Light shoulder press (machine), lateral raises with light weight",
+    achieved: false,
+  },
+  {
+    id: "shoulder-m4-moderate-push",
+    injuryType: "SHOULDER_INSTABILITY",
+    label: "Moderate Push Exercises",
+    requiredStage: 3,
+    unlocks: "Machine chest press at 60% weight, bilateral pressing only",
+    achieved: false,
+  },
+  {
+    id: "shoulder-m5-full-clearance",
+    injuryType: "SHOULDER_INSTABILITY",
+    label: "Full Shoulder Clearance",
+    requiredStage: 4,
+    unlocks: "All shoulder exercises with scapular warmup before pressing",
+    achieved: false,
+  },
 ];

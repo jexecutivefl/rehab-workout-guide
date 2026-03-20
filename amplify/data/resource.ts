@@ -32,7 +32,7 @@ const schema = a.schema({
 
   ActiveInjury: a
     .model({
-      injuryType: a.enum(["PLANTAR_FASCIITIS", "SPRAINED_ELBOW"]),
+      injuryType: a.enum(["PLANTAR_FASCIITIS", "SPRAINED_ELBOW", "SHOULDER_INSTABILITY"]),
       side: a.enum(["LEFT", "RIGHT", "BILATERAL"]),
       stage: a.integer().required(), // 1-4
       currentPainLevel: a.integer(), // 0-10
@@ -47,7 +47,7 @@ const schema = a.schema({
 
   RehabMilestone: a
     .model({
-      injuryType: a.enum(["PLANTAR_FASCIITIS", "SPRAINED_ELBOW"]),
+      injuryType: a.enum(["PLANTAR_FASCIITIS", "SPRAINED_ELBOW", "SHOULDER_INSTABILITY"]),
       milestoneKey: a.string().required(), // e.g. "pf_stage2_standing"
       label: a.string().required(),
       requiredStage: a.integer().required(),

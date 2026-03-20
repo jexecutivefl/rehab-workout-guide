@@ -36,6 +36,8 @@ type OnboardingData = {
   pfPainLevel: number;
   elbowStage: number;
   elbowPainLevel: number;
+  shoulderStage: number;
+  shoulderPainLevel: number;
 };
 
 const GYM_OPTIONS: { value: GymLocation; label: string; desc: string }[] = [
@@ -79,6 +81,8 @@ function OnboardingWizard({ email }: { email: string }) {
     pfPainLevel: 3,
     elbowStage: 2,
     elbowPainLevel: 3,
+    shoulderStage: 1,
+    shoulderPainLevel: 3,
   });
 
   const update = (partial: Partial<OnboardingData>) =>
@@ -128,6 +132,17 @@ function OnboardingWizard({ email }: { email: string }) {
         side: "LEFT",
         stage: data.elbowStage,
         currentPainLevel: data.elbowPainLevel,
+        onsetDate: new Date().toISOString().split("T")[0],
+        lastAssessedAt: new Date().toISOString(),
+        restrictions: JSON.stringify([]),
+      });
+
+      // 4. Create Shoulder Instability injury
+      await createInjury.mutateAsync({
+        injuryType: "SHOULDER_INSTABILITY",
+        side: "LEFT",
+        stage: data.shoulderStage,
+        currentPainLevel: data.shoulderPainLevel,
         onsetDate: new Date().toISOString().split("T")[0],
         lastAssessedAt: new Date().toISOString(),
         restrictions: JSON.stringify([]),
@@ -472,6 +487,57 @@ function OnboardingWizard({ email }: { email: string }) {
                   </div>
                 </div>
               </div>
+
+              {/* Shoulder Instability */}
+              <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                  Shoulder Instability — Left
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Secondary weakness from elbow compensation during fall
+                </p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+                      Stage (1-4)
+                    </label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => update({ shoulderStage: s })}
+                          className={cn(
+                            "flex h-12 w-12 items-center justify-center rounded-lg border-2 font-bold transition-all",
+                            data.shoulderStage === s
+                              ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300"
+                              : "border-gray-200 text-gray-600 hover:border-gray-400 dark:border-gray-700 dark:text-gray-400"
+                          )}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+                      Current Pain (0-10): {data.shoulderPainLevel}
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={10}
+                      value={data.shoulderPainLevel}
+                      onChange={(e) =>
+                        update({
+                          shoulderPainLevel: parseInt(e.target.value, 10),
+                        })
+                      }
+                      className="mt-2 h-2 w-full cursor-pointer accent-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="justify-between">
@@ -790,7 +856,9 @@ function ProfileView() {
                       <div className="font-semibold text-gray-900 dark:text-gray-100">
                         {injury.injuryType === "PLANTAR_FASCIITIS"
                           ? "Plantar Fasciitis"
-                          : "Sprained Elbow"}{" "}
+                          : injury.injuryType === "SPRAINED_ELBOW"
+                            ? "Sprained Elbow"
+                            : "Shoulder Instability"}{" "}
                         — {injury.side}
                       </div>
                       <div className="mt-2 flex gap-4 text-sm text-gray-600 dark:text-gray-400">

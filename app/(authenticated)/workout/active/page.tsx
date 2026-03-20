@@ -62,6 +62,7 @@ function ActiveWorkoutFlow() {
   const injuryContext = useMemo<InjuryContext>(() => {
     const pf = injuries?.find((i) => i.injuryType === "PLANTAR_FASCIITIS");
     const elbow = injuries?.find((i) => i.injuryType === "SPRAINED_ELBOW");
+    const shoulder = injuries?.find((i) => i.injuryType === "SHOULDER_INSTABILITY");
     return {
       plantarFasciitis: {
         stage: (pf?.stage ?? 2) as InjuryStage,
@@ -73,6 +74,11 @@ function ActiveWorkoutFlow() {
         painLevel: elbow?.currentPainLevel ?? 0,
         side: "LEFT",
       },
+      shoulderInstability: {
+        stage: (shoulder?.stage ?? 1) as InjuryStage,
+        painLevel: shoulder?.currentPainLevel ?? 0,
+        side: "LEFT",
+      },
     };
   }, [injuries]);
 
@@ -80,6 +86,7 @@ function ActiveWorkoutFlow() {
   const INJURY_LABELS: Record<string, string> = {
     PLANTAR_FASCIITIS: "Right Foot (Plantar Fasciitis)",
     SPRAINED_ELBOW: "Left Elbow (Ligament/Tendon)",
+    SHOULDER_INSTABILITY: "Left Shoulder (Instability)",
   };
 
   const injuryEntries = useMemo<InjuryPainEntry[]>(() => {
@@ -140,6 +147,11 @@ function ActiveWorkoutFlow() {
             } else if (inj.injuryType === "SPRAINED_ELBOW") {
               updatedInjuryContext.sprainedElbow = {
                 ...updatedInjuryContext.sprainedElbow,
+                painLevel: reportedPain,
+              };
+            } else if (inj.injuryType === "SHOULDER_INSTABILITY") {
+              updatedInjuryContext.shoulderInstability = {
+                ...updatedInjuryContext.shoulderInstability,
                 painLevel: reportedPain,
               };
             }

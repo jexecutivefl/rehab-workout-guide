@@ -16,6 +16,12 @@ const STAGE_LABELS: Record<InjuryType, Record<InjuryStage, string>> = {
     3: "Light bilateral pressing",
     4: "Full clearance",
   },
+  SHOULDER_INSTABILITY: {
+    1: "Isometric rotator cuff only",
+    2: "Band resistance + scapular control",
+    3: "Light overhead + moderate pressing",
+    4: "Full clearance",
+  },
 };
 
 const STAGE_COLORS: Record<InjuryStage, string> = {

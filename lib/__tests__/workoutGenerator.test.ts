@@ -17,6 +17,8 @@ function makeCtx(overrides?: {
   pfPain?: number;
   elbowStage?: 1 | 2 | 3 | 4;
   elbowPain?: number;
+  shoulderStage?: 1 | 2 | 3 | 4;
+  shoulderPain?: number;
 }): InjuryContext {
   return {
     plantarFasciitis: {
@@ -27,6 +29,11 @@ function makeCtx(overrides?: {
     sprainedElbow: {
       stage: overrides?.elbowStage ?? 3,
       painLevel: overrides?.elbowPain ?? 3,
+      side: "LEFT",
+    },
+    shoulderInstability: {
+      stage: overrides?.shoulderStage ?? 4,
+      painLevel: overrides?.shoulderPain ?? 0,
       side: "LEFT",
     },
   };

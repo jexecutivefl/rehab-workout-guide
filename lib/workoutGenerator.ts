@@ -7,6 +7,7 @@ import type {
   PlannedExercise,
   ExerciseDefinition,
   ExerciseCategory,
+  DailyCheckIn,
 } from "@/types/index";
 import { exercisePool } from "@/data/exercisePool";
 import { evaluateExerciseSafety } from "@/lib/injuryEngine";
@@ -110,6 +111,85 @@ export function generateWeeklyPlan(
   });
 }
 
+// ─── Readiness-Based Adjustment ──────────────────────────────
+
+/**
+ * Adjust a day's workout plan based on daily readiness check-in data.
+ *
+ * - Bad day (pain ≥ 6 OR energy ≤ 3): Replace with active recovery, cap RPE at 4
+ * - Low day (pain 4-5 OR energy 4-5): Reduce volume 40%, keep only SAFE exercises, cap RPE at 6
+ * - Good day (pain ≤ 2 AND energy ≥ 7): Allow progression — use full volume, add 1 extra set to compounds
+ * - Normal: Return plan unchanged
+ */
+export function adjustSessionForReadiness(
+  basePlan: DayPlan,
+  checkIn: Pick<DailyCheckIn, "overallPain" | "energyLevel" | "sleepQuality">,
+  profile: UserProfileData,
+  injuryContext: InjuryContext
+): DayPlan {
+  if (basePlan.sessionType === "REST") return basePlan;
+
+  const { overallPain, energyLevel } = checkIn;
+
+  // Bad day: active recovery only
+  if (overallPain >= 6 || energyLevel <= 3) {
+    const recoveryExercises = buildSession(
+      "ACTIVE_RECOVERY",
+      profile,
+      injuryContext,
+      0.5
+    );
+    // Cap RPE at 4
+    const capped = recoveryExercises.map((ex) => ({
+      ...ex,
+      rpeTarget: Math.min(ex.rpeTarget ?? 4, 4),
+    }));
+    return {
+      ...basePlan,
+      sessionType: "ACTIVE_RECOVERY",
+      exercises: capped,
+      notes: `Bad day adjustment: Pain ${overallPain}/10, Energy ${energyLevel}/10. ` +
+        "Active recovery only. Focus on rehab exercises and gentle movement.",
+    };
+  }
+
+  // Low day: reduced volume, SAFE exercises only
+  if (overallPain >= 4 || energyLevel <= 5) {
+    const reduced = basePlan.exercises
+      .filter((ex) => ex.safetyResult.safety === "SAFE" || ex.isRehab)
+      .map((ex) => ({
+        ...ex,
+        sets: ex.sets ? Math.max(1, Math.round(ex.sets * 0.6)) : ex.sets,
+        rpeTarget: Math.min(ex.rpeTarget ?? 6, 6),
+      }));
+    return {
+      ...basePlan,
+      exercises: reduced,
+      notes: `Low day adjustment: Pain ${overallPain}/10, Energy ${energyLevel}/10. ` +
+        "Volume reduced 40%. Only safe exercises. Take extra rest between sets.",
+    };
+  }
+
+  // Good day: allow progression, add volume
+  if (overallPain <= 2 && energyLevel >= 7) {
+    const boosted = basePlan.exercises.map((ex) => {
+      if (!ex.isRehab && ex.sets && ex.sets >= 2) {
+        return { ...ex, sets: ex.sets + 1 };
+      }
+      return ex;
+    });
+    return {
+      ...basePlan,
+      exercises: boosted,
+      notes: (basePlan.notes || "") +
+        " Good day — feeling strong. Extra set added to compound movements. Push for progression.",
+    };
+  }
+
+  // Normal day: unchanged
+  return basePlan;
+}
+
 // ─── Session Builders ─────────────────────────────────────────
 
 function buildSession(
@@ -121,27 +201,87 @@ function buildSession(
   const exercises: PlannedExercise[] = [];
   let orderIndex = 0;
 
-  // Always start with stationary bike warmup
+  // Block 1: Warmup — bike + arm circles + mobility
   const warmup = findAndEvaluate("warmup-stationary-bike", ctx);
   if (warmup) {
     exercises.push(
       toPlanned(warmup.def, warmup.safety, orderIndex++, volumeMultiplier)
     );
   }
+  const armCircles = findAndEvaluate("warmup-arm-circles", ctx);
+  if (armCircles && (sessionType === "UPPER_BODY" || sessionType === "REHAB_FOCUSED" || sessionType === "FULL_BODY")) {
+    exercises.push(
+      toPlanned(armCircles.def, armCircles.safety, orderIndex++, volumeMultiplier)
+    );
+  }
 
-  // Build main session
+  // Block 2: Mini rehab block — always include 2-3 rehab exercises (unless already rehab-focused)
+  if (sessionType !== "REHAB_FOCUSED" && sessionType !== "ACTIVE_RECOVERY") {
+    const rehabBlock = selectMiniRehab(profile, ctx, sessionType);
+    for (const ex of take(rehabBlock, 3)) {
+      exercises.push(toPlanned(ex.def, ex.safety, orderIndex++, volumeMultiplier));
+    }
+  }
+
+  // Block 3: Main session
   const mainExercises = getMainExercises(sessionType, profile, ctx);
   for (const ex of mainExercises) {
     exercises.push(toPlanned(ex.def, ex.safety, orderIndex++, volumeMultiplier));
   }
 
-  // Always end with cooldown stretches
+  // Block 4: Cooldown stretches
   const cooldown = getCooldownExercises(sessionType, ctx);
   for (const ex of cooldown) {
     exercises.push(toPlanned(ex.def, ex.safety, orderIndex++, volumeMultiplier));
   }
 
   return exercises;
+}
+
+/**
+ * Select a mini rehab block (2-3 exercises) relevant to the session type.
+ * Upper body sessions get shoulder + elbow rehab; lower body gets PF rehab.
+ */
+function selectMiniRehab(
+  profile: UserProfileData,
+  ctx: InjuryContext,
+  sessionType: SessionType
+): EvaluatedExercise[] {
+  const allRehab = exercisePool.filter((e) => e.isRehab);
+  const evaluated = filterAndEvaluate(allRehab, profile, ctx);
+
+  if (sessionType === "UPPER_BODY") {
+    // Shoulder + elbow rehab exercises
+    const upper = evaluated.filter((e) =>
+      e.def.muscles.some((m) =>
+        ["rotator_cuff", "infraspinatus", "subscapularis", "rhomboids",
+         "middle_trapezius", "lower_trapezius", "serratus_anterior",
+         "forearm_flexors", "forearm_extensors", "biceps", "triceps"].includes(m)
+      )
+    );
+    return take(upper, 3);
+  }
+
+  if (sessionType === "LOWER_BODY") {
+    // PF + ankle rehab exercises
+    const lower = evaluated.filter((e) =>
+      e.def.muscles.some((m) =>
+        ["foot_intrinsics", "plantar_fascia", "gastrocnemius",
+         "soleus", "tibialis_anterior"].includes(m)
+      )
+    );
+    return take(lower, 2);
+  }
+
+  if (sessionType === "CARDIO_ONLY") {
+    // Light mobility warmup
+    const mobility = evaluated.filter((e) =>
+      e.def.id.startsWith("mobility-")
+    );
+    return take(mobility, 2);
+  }
+
+  return take(evaluated, 2);
 }
 
 type EvaluatedExercise = {
@@ -274,16 +414,57 @@ function selectLowerBody(
   return result;
 }
 
+/**
+ * Smart cardio selection based on injury status.
+ *
+ * Priority: Bike (always safe) → Rowing (if elbow+shoulder allow) → Elliptical (if PF allows) → Walking (if PF allows)
+ *
+ * Rowing is safe when: elbow stage ≥ 3 AND elbow pain ≤ 3 AND shoulder stage ≥ 3
+ * Rowing modified when: elbow stage 3 AND pain ≤ 5 → reduced duration, light grip cue
+ */
 function selectCardio(
   profile: UserProfileData,
   ctx: InjuryContext
 ): EvaluatedExercise[] {
-  const cardio = exercisePool.filter(
-    (e) => e.category === "CARDIO" && !e.isRehab
-  );
-  const evaluated = filterAndEvaluate(cardio, profile, ctx);
-  // Pick up to 2 cardio exercises
-  return take(evaluated, 2);
+  const result: EvaluatedExercise[] = [];
+
+  // Bike is always the primary option (no impact, no elbow/shoulder stress)
+  const bike = findAndEvaluate("cardio-stationary-bike", ctx);
+  if (bike) result.push(bike);
+
+  // Rowing: check elbow + shoulder clearance
+  const elbowClearedForRowing = ctx.sprainedElbow.stage >= 3 && ctx.sprainedElbow.painLevel <= 5;
+  const shoulderClearedForRowing = ctx.shoulderInstability.stage >= 3;
+
+  if (elbowClearedForRowing && shoulderClearedForRowing) {
+    const rowing = findAndEvaluate("cardio-rowing", ctx);
+    if (rowing) {
+      // If elbow pain is 4-5, add extra caution
+      if (ctx.sprainedElbow.painLevel >= 4) {
+        rowing.safety = {
+          ...rowing.safety,
+          safety: "MODIFIED",
+          modification: (rowing.safety.modification || "") +
+            " Light grip, let legs do the work. Reduce duration 50%. Stop if elbow pain increases.",
+        };
+      }
+      result.push(rowing);
+    }
+  }
+
+  // Elliptical: PF stage 3+ (engine handles this via contraindications)
+  if (result.length < 2) {
+    const elliptical = findAndEvaluate("cardio-elliptical", ctx);
+    if (elliptical) result.push(elliptical);
+  }
+
+  // Treadmill walking: PF stage 3+ (engine handles this)
+  if (result.length < 2) {
+    const treadmill = findAndEvaluate("cardio-treadmill-walk", ctx);
+    if (treadmill) result.push(treadmill);
+  }
+
+  return take(result, 2);
 }
 
 function selectActiveRecovery(
@@ -468,6 +649,14 @@ function buildNotes(
 
   if (ctx.sprainedElbow.painLevel >= 5) {
     notes.push(`Elbow pain elevated (${ctx.sprainedElbow.painLevel}/10). Extra caution on arm exercises.`);
+  }
+
+  if (ctx.shoulderInstability.painLevel >= 5) {
+    notes.push(`Shoulder pain elevated (${ctx.shoulderInstability.painLevel}/10). Extra caution on pressing and overhead movements.`);
+  }
+
+  if (ctx.sprainedElbow.stage <= 2 && ctx.shoulderInstability.stage <= 2) {
+    notes.push("Both elbow and shoulder in early rehab — no pressing allowed this session.");
   }
 
   return notes.join(" ");

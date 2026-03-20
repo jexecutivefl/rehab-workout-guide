@@ -9,6 +9,7 @@ import type { InjuryType, InjuryStage } from "@/types/index";
 const INJURY_LABELS: Record<InjuryType, string> = {
   PLANTAR_FASCIITIS: "Plantar Fasciitis",
   SPRAINED_ELBOW: "Sprained Elbow",
+  SHOULDER_INSTABILITY: "Shoulder Instability",
 };
 
 const STAGE_COLORS: Record<InjuryStage, { bg: string; text: string; darkBg: string; darkText: string }> = {

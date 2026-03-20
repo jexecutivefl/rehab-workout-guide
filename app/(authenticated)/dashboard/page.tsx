@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const injuryContext = useMemo<InjuryContext>(() => {
     const pf = injuries?.find((i) => i.injuryType === "PLANTAR_FASCIITIS");
     const elbow = injuries?.find((i) => i.injuryType === "SPRAINED_ELBOW");
+    const shoulder = injuries?.find((i) => i.injuryType === "SHOULDER_INSTABILITY");
     return {
       plantarFasciitis: {
         stage: (pf?.stage ?? 2) as InjuryStage,
@@ -40,6 +41,11 @@ export default function DashboardPage() {
       sprainedElbow: {
         stage: (elbow?.stage ?? 1) as InjuryStage,
         painLevel: elbow?.currentPainLevel ?? 0,
+        side: "LEFT",
+      },
+      shoulderInstability: {
+        stage: (shoulder?.stage ?? 1) as InjuryStage,
+        painLevel: shoulder?.currentPainLevel ?? 0,
         side: "LEFT",
       },
     };

@@ -26,6 +26,13 @@ const ELBOW_CONTRAINDICATIONS = [
   "full_lockout",
 ] as const;
 
+/** Contraindications that affect Shoulder Instability */
+const SHOULDER_CONTRAINDICATIONS = [
+  "overhead_load",
+  "shoulder_internal_rotation_load",
+  "push_heavy",
+] as const;
+
 /** Movement patterns related to the elbow */
 const ELBOW_MOVEMENTS = [
   "elbow_flexion",
@@ -35,6 +42,16 @@ const ELBOW_MOVEMENTS = [
   "horizontal_pull",
   "vertical_pull",
   "grip",
+] as const;
+
+/** Movement patterns related to the shoulder */
+const SHOULDER_MOVEMENTS = [
+  "vertical_push",
+  "horizontal_push",
+  "shoulder_abduction",
+  "shoulder_flexion",
+  "shoulder_external_rotation",
+  "shoulder_internal_rotation",
 ] as const;
 
 /** Movement patterns related to standing / feet */
@@ -59,9 +76,15 @@ export function evaluateExerciseSafety(
 ): SafetyResult {
   const pfResult = evaluatePF(name, movements, contraindications, ctx.plantarFasciitis);
   const elbowResult = evaluateElbow(name, movements, contraindications, ctx.sprainedElbow);
+  const shoulderResult = evaluateShoulder(name, movements, contraindications, ctx.shoulderInstability);
 
-  // Return the most restrictive result
-  return mostRestrictive(pfResult, elbowResult);
+  // Combine all injury results — most restrictive wins
+  let result = mostRestrictive(pfResult, mostRestrictive(elbowResult, shoulderResult));
+
+  // Apply elbow-shoulder compensation risk post-processing
+  result = applyCompensationRisk(result, movements, ctx);
+
+  return result;
 }
 
 // ─── Plantar Fasciitis Rules ──────────────────────────────────
@@ -301,6 +324,205 @@ function evaluateElbow(
   }
 }
 
+// ─── Shoulder Instability Rules ───────────────────────────────
+
+function evaluateShoulder(
+  _name: string,
+  movements: string[],
+  contraindications: string[],
+  shoulder: InjuryContext["shoulderInstability"]
+): SafetyResult {
+  const hasShoulderContra = contraindications.some((c) =>
+    (SHOULDER_CONTRAINDICATIONS as readonly string[]).includes(c)
+  );
+  const hasShoulderMovement = movements.some((m) =>
+    (SHOULDER_MOVEMENTS as readonly string[]).includes(m)
+  );
+  const hasOverhead = contraindications.includes("overhead_load");
+  const hasPushHeavy = contraindications.includes("push_heavy");
+  const hasShoulderIRLoad = contraindications.includes("shoulder_internal_rotation_load");
+  const hasVerticalPush = movements.includes("vertical_push");
+  const hasHorizontalPush = movements.includes("horizontal_push");
+  const hasShoulderAbduction = movements.includes("shoulder_abduction");
+
+  if (shoulder.painLevel >= 7) {
+    if (hasShoulderContra || hasShoulderMovement) {
+      return {
+        safety: "FLAG_PAIN",
+        reason: `Shoulder pain level ${shoulder.painLevel}/10 — avoid all shoulder exercises`,
+      };
+    }
+  }
+
+  switch (shoulder.stage) {
+    case 1:
+      // Stage 1: AVOID all overhead, push, and loaded shoulder movements.
+      // SAFE: isometric rotator cuff, scapular retraction (no load)
+      if (hasOverhead || hasPushHeavy || hasShoulderIRLoad) {
+        return {
+          safety: "AVOID",
+          reason: "Shoulder Stage 1: No overhead, push, or loaded shoulder exercises",
+        };
+      }
+      if (hasVerticalPush || hasHorizontalPush) {
+        return {
+          safety: "AVOID",
+          reason: "Shoulder Stage 1: No pressing movements",
+        };
+      }
+      if (hasShoulderAbduction) {
+        return {
+          safety: "AVOID",
+          reason: "Shoulder Stage 1: No loaded shoulder abduction",
+        };
+      }
+      if (hasShoulderMovement) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 1: Isometric only",
+          modification: "Isometric holds only. No movement under load. Stop if pain > 2.",
+        };
+      }
+      return { safety: "SAFE" };
+
+    case 2:
+      // Stage 2: AVOID overhead load. MODIFY horizontal push to bands only.
+      // SAFE: rotator cuff bands, scapular control, wall slides.
+      if (hasOverhead || hasVerticalPush) {
+        return {
+          safety: "AVOID",
+          reason: "Shoulder Stage 2: No overhead exercises",
+        };
+      }
+      if (hasPushHeavy) {
+        return {
+          safety: "AVOID",
+          reason: "Shoulder Stage 2: No heavy pushing",
+        };
+      }
+      if (hasHorizontalPush) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 2: Light resistance only",
+          modification: "Bands or very light weight only. Pain must stay below 3. Stop immediately if sharp pain.",
+        };
+      }
+      if (hasShoulderAbduction) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 2: Light abduction only",
+          modification: "Very light weight (2-3 lbs max). Controlled movement. Stop if pain > 3.",
+        };
+      }
+      if (hasShoulderIRLoad) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 2: Light bands only for rotation",
+          modification: "Use light resistance band. Controlled tempo. Elbow pinned to side.",
+        };
+      }
+      return { safety: "SAFE" };
+
+    case 3:
+      // Stage 3: MODIFY overhead to light weight. MODIFY horizontal push to moderate.
+      // SAFE: face pulls, lateral raises (light), rotator cuff work.
+      if (hasOverhead) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 3: Light overhead only",
+          modification: "Light weight only. No behind-neck movements. Stop short of full lockout.",
+        };
+      }
+      if (hasPushHeavy) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 3: Moderate pressing",
+          modification: "Bilateral only. Reduce weight 30% from normal. No flared elbows.",
+        };
+      }
+      if (hasVerticalPush) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 3: Light overhead pressing",
+          modification: "Light weight, machine preferred. No dumbbells overhead yet.",
+        };
+      }
+      if (hasShoulderIRLoad) {
+        return {
+          safety: "MODIFIED",
+          reason: "Shoulder Stage 3: Moderate rotation work",
+          modification: "Moderate band resistance. Controlled tempo throughout.",
+        };
+      }
+      return { safety: "SAFE" };
+
+    case 4:
+      // Stage 4: Full clearance with scapular warmup recommendation.
+      if (hasOverhead || hasVerticalPush || hasPushHeavy) {
+        return {
+          safety: "SAFE",
+          modification: "Perform scapular warmup before heavy pressing. Monitor shoulder fatigue.",
+        };
+      }
+      return { safety: "SAFE" };
+
+    default:
+      return { safety: "SAFE" };
+  }
+}
+
+// ─── Elbow-Shoulder Compensation Risk ────────────────────────
+
+/**
+ * Post-processing step: when both elbow and shoulder are injured,
+ * prevent compensation patterns that could worsen either injury.
+ */
+function applyCompensationRisk(
+  baseResult: SafetyResult,
+  movements: string[],
+  ctx: InjuryContext
+): SafetyResult {
+  const elbowStage = ctx.sprainedElbow.stage;
+  const shoulderStage = ctx.shoulderInstability.stage;
+
+  // If both elbow AND shoulder are in acute/early phases, block all pressing
+  const hasPressMovement = movements.some((m) =>
+    ["horizontal_push", "vertical_push"].includes(m)
+  );
+
+  if (elbowStage <= 2 && shoulderStage <= 2 && hasPressMovement) {
+    if (baseResult.safety !== "AVOID") {
+      return {
+        safety: "AVOID",
+        reason: "Both elbow and shoulder in early rehab — no pressing until one reaches stage 3",
+      };
+    }
+  }
+
+  // If elbow is lagging behind shoulder, warn about shoulder compensation
+  if (elbowStage < shoulderStage && baseResult.safety === "MODIFIED" && hasPressMovement) {
+    return {
+      ...baseResult,
+      modification: baseResult.modification
+        ? `${baseResult.modification}; Elbow is more restricted — do not shift load to shoulder to compensate.`
+        : "Elbow is more restricted — do not shift load to shoulder to compensate.",
+    };
+  }
+
+  // If shoulder is lagging behind elbow, warn about elbow/grip compensation
+  const hasGripMovement = movements.some((m) => ["grip", "horizontal_pull", "vertical_pull"].includes(m));
+  if (shoulderStage < elbowStage && baseResult.safety === "MODIFIED" && hasGripMovement) {
+    return {
+      ...baseResult,
+      modification: baseResult.modification
+        ? `${baseResult.modification}; Shoulder is weaker — do not grip harder to compensate.`
+        : "Shoulder is weaker — do not grip harder to compensate.",
+    };
+  }
+
+  return baseResult;
+}
+
 // ─── Session Flagging ─────────────────────────────────────────
 
 /**
@@ -399,6 +621,36 @@ export function getActiveRestrictions(ctx: InjuryContext): string[] {
   }
   if (elbow.painLevel >= 5) {
     restrictions.push(`Elbow: Elevated pain (${elbow.painLevel}/10) — monitor closely`);
+  }
+
+  // Shoulder Instability restrictions
+  const shoulder = ctx.shoulderInstability;
+  switch (shoulder.stage) {
+    case 1:
+      restrictions.push("Shoulder: No overhead, push, or loaded shoulder exercises");
+      restrictions.push("Shoulder: Isometric rotator cuff only");
+      break;
+    case 2:
+      restrictions.push("Shoulder: No overhead exercises");
+      restrictions.push("Shoulder: Bands and light resistance only");
+      restrictions.push("Shoulder: Scapular control work OK");
+      break;
+    case 3:
+      restrictions.push("Shoulder: Light overhead only, no behind-neck");
+      restrictions.push("Shoulder: Moderate pressing with 30% weight reduction");
+      restrictions.push("Shoulder: Face pulls and lateral raises OK");
+      break;
+    case 4:
+      restrictions.push("Shoulder: Cleared — perform scapular warmup before pressing");
+      break;
+  }
+  if (shoulder.painLevel >= 5) {
+    restrictions.push(`Shoulder: Elevated pain (${shoulder.painLevel}/10) — monitor closely`);
+  }
+
+  // Compensation warnings
+  if (elbow.stage <= 2 && shoulder.stage <= 2) {
+    restrictions.push("COMPENSATION RISK: Both elbow and shoulder in early rehab — no pressing");
   }
 
   return restrictions;

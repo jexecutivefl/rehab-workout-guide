@@ -78,6 +78,42 @@ const REHAB_PROTOCOLS: Record<InjuryType, Record<InjuryStage, { exercises: Rehab
       note: "Avoid full lockout under heavy load. Continue warm-up band work before pressing sessions.",
     },
   },
+  SHOULDER_INSTABILITY: {
+    1: {
+      exercises: [
+        { name: "Isometric External Rotation", prescription: "3 sets x 15 sec hold at 50% effort", frequency: "3x daily" },
+        { name: "Isometric Internal Rotation", prescription: "3 sets x 15 sec hold at 50% effort", frequency: "3x daily" },
+        { name: "Scapular Retraction Squeeze", prescription: "3 sets x 15 reps, hold 5 sec", frequency: "3x daily" },
+      ],
+    },
+    2: {
+      exercises: [
+        { name: "Band External Rotation", prescription: "3 sets x 12-15 reps (light band)", frequency: "2x daily" },
+        { name: "Band Internal Rotation", prescription: "3 sets x 12-15 reps (light band)", frequency: "2x daily" },
+        { name: "Band Pull-Apart", prescription: "3 sets x 15 reps", frequency: "2x daily" },
+        { name: "Wall Slides", prescription: "3 sets x 10-12 reps", frequency: "2x daily" },
+        { name: "Prone Y-Raise", prescription: "3 sets x 10 reps (no weight)", frequency: "1x daily" },
+      ],
+    },
+    3: {
+      exercises: [
+        { name: "Band ER/IR (medium band)", prescription: "3 sets x 15 reps", frequency: "Pre-workout + 1x daily" },
+        { name: "Band Pull-Apart", prescription: "3 sets x 15 reps", frequency: "Pre-workout" },
+        { name: "Prone Y/T-Raise", prescription: "3 sets x 12 reps (1-2 lbs)", frequency: "1x daily" },
+        { name: "Light Lateral Raise", prescription: "3 sets x 12-15 reps (2-3 lbs)", frequency: "3x weekly" },
+        { name: "Light Shoulder Press (machine)", prescription: "3 sets x 10 reps at 50% max", frequency: "2x weekly" },
+      ],
+      note: "Always perform scapular warmup before any pressing. No behind-neck movements.",
+    },
+    4: {
+      exercises: [
+        { name: "Full Shoulder Program", prescription: "Normal programming", frequency: "Per plan" },
+        { name: "Band ER/IR (maintenance)", prescription: "2 sets x 15 reps", frequency: "Pre-workout" },
+        { name: "Band Pull-Apart (warmup)", prescription: "2 sets x 15 reps", frequency: "Pre-workout" },
+      ],
+      note: "Perform scapular warmup before all pressing sessions. Monitor shoulder fatigue during heavy overhead work.",
+    },
+  },
 };
 
 interface RehabProtocolCardProps {

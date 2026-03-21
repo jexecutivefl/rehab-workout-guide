@@ -144,6 +144,7 @@ export type ExerciseDefinition = {
   contraindications: string[];
   equipment: GymLocation[];
   isRehab: boolean;
+  isDesk?: boolean;
   defaultSets?: number;
   defaultRepsMin?: number;
   defaultRepsMax?: number;
@@ -183,3 +184,93 @@ export type WorkoutSessionRecord = Schema["WorkoutSession"]["type"];
 export type CompletedExerciseRecord = Schema["CompletedExerciseRecord"]["type"];
 export type CompletedSetRecord = Schema["CompletedSetRecord"]["type"];
 export type BodyMetricRecord = Schema["BodyMetric"]["type"];
+
+// ─── Workout Analysis ──────────────────────────────────────
+export type ExerciseFrequency = {
+  exerciseId: string;
+  exerciseName: string;
+  countInWindow: number;
+  lastUsedDate: string;
+  avgRpe: number;
+  avgPain: number;
+};
+
+export type MuscleGroupVolume = {
+  muscle: string;
+  totalSets: number;
+  totalReps: number;
+  avgRpe: number;
+  sessionCount: number;
+};
+
+export type WorkoutAnalysis = {
+  windowDays: number;
+  exerciseFrequencies: ExerciseFrequency[];
+  muscleVolumes: MuscleGroupVolume[];
+  totalSessions: number;
+  avgSessionsPerWeek: number;
+  avgPainTrend: number; // -1 to +1 (negative = improving)
+  avgRpeTrend: number; // -1 to +1
+};
+
+export type CompletedSessionData = {
+  date: string;
+  sessionType: SessionType;
+  exercises: {
+    exerciseId: string;
+    exerciseName: string;
+    muscles: string[];
+    sets: { reps?: number; weightLbs?: number; rpe: number; pain: number }[];
+    wasSkipped: boolean;
+  }[];
+};
+
+// ─── Plateau Detection ─────────────────────────────────────
+export type ExerciseProgressionHistory = {
+  exerciseId: string;
+  exerciseName: string;
+  entries: {
+    date: string;
+    weightLbs: number;
+    bestReps: number;
+    avgRpe: number;
+    avgPain: number;
+  }[];
+};
+
+export type PlateauSignalType =
+  | "WEIGHT_STALL"
+  | "REP_STALL"
+  | "RPE_CEILING"
+  | "VOLUME_FLAT"
+  | "EXERCISE_STALENESS";
+
+export type PlateauSignal = {
+  type: PlateauSignalType;
+  exerciseId?: string;
+  exerciseName?: string;
+  muscle?: string;
+  severity: "mild" | "moderate" | "strong";
+  message: string;
+};
+
+export type PlateauAdaptationAction =
+  | "SWAP_EXERCISE"
+  | "CHANGE_REP_RANGE"
+  | "ADD_VOLUME"
+  | "DELOAD"
+  | "ROTATE_VARIATION";
+
+export type PlateauAdaptation = {
+  signal: PlateauSignal;
+  action: PlateauAdaptationAction;
+  detail: string;
+  suggestedExerciseId?: string;
+};
+
+// ─── Desk Rehab ────────────────────────────────────────────
+export type DeskExerciseFilter = {
+  injuryType?: InjuryType;
+  maxDurationMin?: number;
+  bodyPart?: "shoulder" | "elbow" | "foot" | "all";
+};

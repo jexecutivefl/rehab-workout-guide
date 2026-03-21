@@ -274,3 +274,39 @@ export type DeskExerciseFilter = {
   maxDurationMin?: number;
   bodyPart?: "shoulder" | "elbow" | "foot" | "all";
 };
+
+// ─── AI Coach ──────────────────────────────────────────────
+export type AIProvider = "CLAUDE" | "OPENAI";
+
+export type ChatMessageRole = "USER" | "ASSISTANT";
+
+export type ChatMessageData = {
+  id?: string;
+  role: ChatMessageRole;
+  content: string;
+  flaggedExercises?: string[];
+  createdAt: Date;
+};
+
+export type ChatConversationData = {
+  id: string;
+  title: string;
+  lastMessageAt: Date;
+  messages?: ChatMessageData[];
+};
+
+export type AICoachRequest = {
+  message: string;
+  conversationId?: string;
+};
+
+export type AICoachResponse = {
+  content: string;
+  flaggedExercises: string[];
+  conversationId: string;
+};
+
+// DB convenience types for AI Coach
+export type UserAIConfigRecord = Schema["UserAIConfig"]["type"];
+export type ChatConversationRecord = Schema["ChatConversation"]["type"];
+export type ChatMessageRecord = Schema["ChatMessage"]["type"];

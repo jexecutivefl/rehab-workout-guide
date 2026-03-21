@@ -5,10 +5,10 @@ import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
  *
  * Models: UserProfile, ActiveInjury, RehabMilestone, WorkoutPlan,
  *         PlannedSession, WorkoutSession, CompletedExercise, CompletedSet,
- *         BodyMetric
+ *         BodyMetric, UserAIConfig, ChatConversation, ChatMessage
  *
- * Resource budget: 9 models (removed Task). Each model ~20-30 CF resources.
- * Estimated total: ~250 resources — well under the 500 limit.
+ * Resource budget: 12 models (removed Task). Each model ~20-30 CF resources.
+ * Estimated total: ~310-350 resources — well under the 500 limit.
  */
 
 const schema = a.schema({
@@ -160,6 +160,39 @@ const schema = a.schema({
       pain: a.integer(), // 0-10
       createdAt: a.datetime(),
       updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.owner()]),
+
+  // ─── AI Coach ────────────────────────────────────────────
+
+  UserAIConfig: a
+    .model({
+      claudeApiKey: a.string(), // encrypted at rest in DynamoDB
+      openaiApiKey: a.string(), // encrypted at rest in DynamoDB
+      preferredProvider: a.enum(["CLAUDE", "OPENAI"]),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.owner()]),
+
+  ChatConversation: a
+    .model({
+      title: a.string(),
+      lastMessageAt: a.datetime(),
+      messages: a.hasMany("ChatMessage", "conversationId"),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.owner()]),
+
+  ChatMessage: a
+    .model({
+      conversationId: a.string().required(),
+      conversation: a.belongsTo("ChatConversation", "conversationId"),
+      role: a.enum(["USER", "ASSISTANT"]),
+      content: a.string().required(),
+      flaggedExercises: a.string(), // JSON array of exercises that were safety-filtered
+      createdAt: a.datetime(),
     })
     .authorization((allow) => [allow.owner()]),
 

@@ -5,6 +5,9 @@ import type { InjuryContext, UserProfileData, AIProvider } from "@/types/index";
 import { buildSystemPrompt, filterResponseExercises } from "@/lib/aiCoach";
 import { exercisePool } from "@/data/exercisePool";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/ai/chat
  *
@@ -75,13 +78,20 @@ export async function POST(req: NextRequest) {
         : undefined;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    console.error("AI Coach error:", statusCode ?? "no status", errorMessage);
+    console.error("AI Coach error:", { status: statusCode, message: errorMessage, error });
 
     // Match on HTTP status from the SDK, falling back to message keywords
     if (statusCode === 401 || errorMessage.includes("401") || errorMessage.includes("authentication")) {
       return NextResponse.json(
         { error: "Invalid API key. Please check your key in settings." },
         { status: 401 }
+      );
+    }
+
+    if (statusCode === 400 || errorMessage.includes("400")) {
+      return NextResponse.json(
+        { error: `Bad request: ${errorMessage}` },
+        { status: 400 }
       );
     }
 
@@ -92,8 +102,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (statusCode === 529 || errorMessage.includes("overloaded")) {
+      return NextResponse.json(
+        { error: "AI service is temporarily overloaded. Please try again in a moment." },
+        { status: 529 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Failed to get AI response. Please try again." },
+      { error: `Failed to get AI response: ${errorMessage}` },
       { status: 500 }
     );
   }

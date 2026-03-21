@@ -32,8 +32,8 @@ export function AISettings() {
     try {
       await saveConfig.mutateAsync({
         id: aiConfig?.id,
-        claudeApiKey: claudeKey || null,
-        openaiApiKey: openaiKey || null,
+        claudeApiKey: claudeKey.trim() || null,
+        openaiApiKey: openaiKey.trim() || null,
         preferredProvider: provider,
       });
       toast.success("AI settings saved");

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { AISettings } from "@/components/settings/AISettings";
 import type { GymLocation } from "@/types";
 
 // ─── Onboarding Wizard ──────────────────────────────────────
@@ -881,6 +882,11 @@ function ProfileView() {
           )}
         </div>
       )}
+
+      {/* AI Coach Settings */}
+      <div className="mt-8">
+        <AISettings />
+      </div>
     </div>
   );
 }

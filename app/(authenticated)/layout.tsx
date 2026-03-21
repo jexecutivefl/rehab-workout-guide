@@ -3,6 +3,7 @@
 import { AuthGuard } from "@/components/layout/AuthGuard";
 import { AppShell } from "@/components/layout/AppShell";
 import { Providers } from "@/components/layout/Providers";
+import { FloatingCoachWidget } from "@/components/coach/FloatingCoachWidget";
 
 /**
  * Authenticated Layout
@@ -19,6 +20,7 @@ export default function AuthenticatedLayout({
     <AuthGuard>
       <Providers>
         <AppShell>{children}</AppShell>
+        <FloatingCoachWidget />
       </Providers>
     </AuthGuard>
   );

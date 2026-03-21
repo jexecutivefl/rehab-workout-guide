@@ -88,6 +88,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Credit balance / billing errors (status 400 with specific message)
+    if (
+      errorMessage.includes("credit balance") ||
+      errorMessage.includes("Plans & Billing")
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Your Anthropic credit balance is too low. Please verify: (1) you added credits to the correct workspace at console.anthropic.com, (2) your API key belongs to that same workspace. Each workspace has separate billing.",
+        },
+        { status: 402 }
+      );
+    }
+
     if (statusCode === 400 || errorMessage.includes("400")) {
       return NextResponse.json(
         { error: `Bad request: ${errorMessage}` },

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { InjuryStatusCard } from "@/components/rehab/InjuryStatusCard";
+import { DeskRehabCard } from "@/components/rehab/DeskRehabCard";
 import { getActiveRestrictions } from "@/lib/injuryEngine";
 import { useActiveInjuries, useUpdateInjuryStage } from "@/hooks/useAmplifyData";
 import type { InjuryStage, InjuryContext } from "@/types/index";
@@ -123,6 +124,11 @@ export default function RehabPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Desk Rehab Quick Session */}
+      <div className="mt-8">
+        <DeskRehabCard injuryContext={injuryContext} />
+      </div>
 
       {/* Active Restrictions */}
       <Card className="mt-8">

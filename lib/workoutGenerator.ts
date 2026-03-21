@@ -8,9 +8,12 @@ import type {
   ExerciseDefinition,
   ExerciseCategory,
   DailyCheckIn,
+  WorkoutAnalysis,
+  PlateauAdaptation,
 } from "@/types/index";
 import { exercisePool } from "@/data/exercisePool";
 import { evaluateExerciseSafety } from "@/lib/injuryEngine";
+import { getExerciseRotationScore, getMuscleBalanceGaps } from "@/lib/workoutAnalyzer";
 
 /**
  * Weekly plan generator.
@@ -76,11 +79,14 @@ const VOLUME_MULTIPLIERS: Record<1 | 2 | 3 | 4, number> = {
 
 /**
  * Generate a full weekly plan, filtering every exercise through the injury engine.
+ * When `history` is provided, exercise selection uses rotation-aware scoring
+ * to avoid staleness and improve muscle balance.
  */
 export function generateWeeklyPlan(
   profile: UserProfileData,
   injuryContext: InjuryContext,
-  week: 1 | 2 | 3 | 4
+  week: 1 | 2 | 3 | 4,
+  history?: WorkoutAnalysis
 ): DayPlan[] {
   const template = WEEK_TEMPLATES[week];
   const volumeMultiplier = VOLUME_MULTIPLIERS[week];
@@ -99,7 +105,8 @@ export function generateWeeklyPlan(
       dayTemplate.sessionType,
       profile,
       injuryContext,
-      volumeMultiplier
+      volumeMultiplier,
+      history
     );
 
     return {
@@ -109,6 +116,83 @@ export function generateWeeklyPlan(
       notes: buildNotes(dayTemplate.sessionType, week, injuryContext),
     };
   });
+}
+
+/**
+ * Post-process a generated plan by applying plateau adaptations.
+ * Swaps exercises per plateau recommendations. Every swap is re-checked
+ * through the injury engine.
+ */
+export function applyPlateauAdaptations(
+  plan: DayPlan[],
+  adaptations: PlateauAdaptation[],
+  injuryContext: InjuryContext
+): DayPlan[] {
+  if (adaptations.length === 0) return plan;
+
+  // Build a map of exercise swaps from adaptations
+  const swapMap = new Map<string, string>();
+  const repRangeChanges = new Map<string, "higher" | "lower">();
+  const volumeAdds = new Set<string>();
+
+  for (const adaptation of adaptations) {
+    const exerciseId = adaptation.signal.exerciseId;
+    if (!exerciseId) continue;
+
+    switch (adaptation.action) {
+      case "SWAP_EXERCISE":
+      case "ROTATE_VARIATION":
+        if (adaptation.suggestedExerciseId) {
+          swapMap.set(exerciseId, adaptation.suggestedExerciseId);
+        }
+        break;
+      case "CHANGE_REP_RANGE":
+        repRangeChanges.set(exerciseId, "higher");
+        break;
+      case "ADD_VOLUME":
+        volumeAdds.add(exerciseId);
+        break;
+      // DELOAD is handled at the plan level, not per-exercise
+    }
+  }
+
+  return plan.map((day) => ({
+    ...day,
+    exercises: day.exercises.map((ex) => {
+      // Swap exercise
+      if (swapMap.has(ex.id)) {
+        const newId = swapMap.get(ex.id)!;
+        const newDef = exercisePool.find((e) => e.id === newId);
+        if (newDef) {
+          const safety = evaluateExerciseSafety(
+            newDef.name,
+            newDef.movements,
+            newDef.contraindications,
+            injuryContext
+          );
+          if (safety.safety !== "AVOID") {
+            return toPlanned(newDef, safety, ex.orderIndex, 1.0);
+          }
+        }
+      }
+
+      // Change rep range
+      if (repRangeChanges.has(ex.id)) {
+        return {
+          ...ex,
+          repsMin: (ex.repsMin ?? 8) + 2,
+          repsMax: (ex.repsMax ?? 12) + 2,
+        };
+      }
+
+      // Add volume
+      if (volumeAdds.has(ex.id) && ex.sets) {
+        return { ...ex, sets: ex.sets + 1 };
+      }
+
+      return ex;
+    }),
+  }));
 }
 
 // ─── Readiness-Based Adjustment ──────────────────────────────
@@ -196,7 +280,8 @@ function buildSession(
   sessionType: SessionType,
   profile: UserProfileData,
   ctx: InjuryContext,
-  volumeMultiplier: number
+  volumeMultiplier: number,
+  history?: WorkoutAnalysis
 ): PlannedExercise[] {
   const exercises: PlannedExercise[] = [];
   let orderIndex = 0;
@@ -223,8 +308,8 @@ function buildSession(
     }
   }
 
-  // Block 3: Main session
-  const mainExercises = getMainExercises(sessionType, profile, ctx);
+  // Block 3: Main session (use rotation-aware selection when history is available)
+  const mainExercises = getMainExercises(sessionType, profile, ctx, history);
   for (const ex of mainExercises) {
     exercises.push(toPlanned(ex.def, ex.safety, orderIndex++, volumeMultiplier));
   }
@@ -292,15 +377,16 @@ type EvaluatedExercise = {
 function getMainExercises(
   sessionType: SessionType,
   profile: UserProfileData,
-  ctx: InjuryContext
+  ctx: InjuryContext,
+  history?: WorkoutAnalysis
 ): EvaluatedExercise[] {
   switch (sessionType) {
     case "REHAB_FOCUSED":
       return selectRehabExercises(profile, ctx);
     case "UPPER_BODY":
-      return selectUpperBody(profile, ctx);
+      return selectUpperBody(profile, ctx, history);
     case "LOWER_BODY":
-      return selectLowerBody(profile, ctx);
+      return selectLowerBody(profile, ctx, history);
     case "CARDIO_ONLY":
       return selectCardio(profile, ctx);
     case "ACTIVE_RECOVERY":
@@ -320,7 +406,8 @@ function selectRehabExercises(
 
 function selectUpperBody(
   profile: UserProfileData,
-  ctx: InjuryContext
+  ctx: InjuryContext,
+  history?: WorkoutAnalysis
 ): EvaluatedExercise[] {
   const upperMuscles = [
     "pectorals",
@@ -362,17 +449,18 @@ function selectUpperBody(
   );
 
   const result: EvaluatedExercise[] = [];
-  result.push(...take(push, 2));
-  result.push(...take(pull, 2));
-  result.push(...take(shoulder, 1));
-  result.push(...take(core, 1));
+  result.push(...selectWithRotation(push, 2, history));
+  result.push(...selectWithRotation(pull, 2, history));
+  result.push(...selectWithRotation(shoulder, 1, history));
+  result.push(...selectWithRotation(core, 1, history));
 
   return result;
 }
 
 function selectLowerBody(
   profile: UserProfileData,
-  ctx: InjuryContext
+  ctx: InjuryContext,
+  history?: WorkoutAnalysis
 ): EvaluatedExercise[] {
   const lowerMuscles = [
     "quadriceps",
@@ -407,9 +495,9 @@ function selectLowerBody(
   );
 
   const result: EvaluatedExercise[] = [];
-  result.push(...take(quadDom, 2));
-  result.push(...take(hamGlute, 2));
-  result.push(...take(core, 1));
+  result.push(...selectWithRotation(quadDom, 2, history));
+  result.push(...selectWithRotation(hamGlute, 2, history));
+  result.push(...selectWithRotation(core, 1, history));
 
   return result;
 }
@@ -583,6 +671,46 @@ function findAndEvaluate(
 
   if (safety.safety === "AVOID") return null;
   return { def, safety };
+}
+
+/**
+ * Select up to N exercises using rotation-aware scoring when history is available.
+ * Composite score: safetyRank * 0.4 + freshnessScore * 0.4 + muscleNeedScore * 0.2.
+ * Falls back to safety-only sort (original behavior) when no history.
+ */
+function selectWithRotation(
+  candidates: EvaluatedExercise[],
+  n: number,
+  history?: WorkoutAnalysis
+): EvaluatedExercise[] {
+  if (!history || candidates.length <= n) {
+    return take(candidates, n);
+  }
+
+  // Determine which muscles are underserved
+  const allMuscles = [...new Set(candidates.flatMap((c) => c.def.muscles))];
+  const gaps = getMuscleBalanceGaps(history, allMuscles);
+  const gapMuscles = new Set(gaps.map((g) => g.muscle));
+
+  const safetyRank: Record<string, number> = {
+    SAFE: 1.0,
+    MODIFIED: 0.6,
+    FLAG_PAIN: 0.2,
+    AVOID: 0,
+  };
+
+  const scored = candidates.map((ex) => {
+    const safety = safetyRank[ex.safety.safety] ?? 0;
+    const rotationScore = getExerciseRotationScore(ex.def.id, history);
+    const freshness = 1 - rotationScore; // 1 = fresh, 0 = overused
+    const muscleNeed = ex.def.muscles.some((m) => gapMuscles.has(m)) ? 1.0 : 0.3;
+
+    const score = safety * 0.4 + freshness * 0.4 + muscleNeed * 0.2;
+    return { ex, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, n).map((s) => s.ex);
 }
 
 /** Take up to N items from an array without duplicating IDs already seen. */

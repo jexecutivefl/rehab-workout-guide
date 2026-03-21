@@ -39,14 +39,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Trim whitespace that may be introduced by copy-paste
+    const trimmedKey = apiKey.trim();
+
     const systemPrompt = buildSystemPrompt(injuryContext, profile, exercisePool);
 
     let aiResponse: string;
 
     if (provider === "CLAUDE") {
-      aiResponse = await callClaude(apiKey, systemPrompt, message, conversationHistory);
+      aiResponse = await callClaude(trimmedKey, systemPrompt, message, conversationHistory);
     } else if (provider === "OPENAI") {
-      aiResponse = await callOpenAI(apiKey, systemPrompt, message, conversationHistory);
+      aiResponse = await callOpenAI(trimmedKey, systemPrompt, message, conversationHistory);
     } else {
       return NextResponse.json(
         { error: "Invalid provider. Use CLAUDE or OPENAI." },
@@ -66,24 +69,29 @@ export async function POST(req: NextRequest) {
       flaggedExercises,
     });
   } catch (error: unknown) {
+    const statusCode =
+      error != null && typeof error === "object" && "status" in error
+        ? (error as { status: number }).status
+        : undefined;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Return user-friendly error messages for common API key issues
-    if (errorMessage.includes("401") || errorMessage.includes("authentication") || errorMessage.includes("invalid")) {
+    console.error("AI Coach error:", statusCode ?? "no status", errorMessage);
+
+    // Match on HTTP status from the SDK, falling back to message keywords
+    if (statusCode === 401 || errorMessage.includes("401") || errorMessage.includes("authentication")) {
       return NextResponse.json(
         { error: "Invalid API key. Please check your key in settings." },
         { status: 401 }
       );
     }
 
-    if (errorMessage.includes("429") || errorMessage.includes("rate")) {
+    if (statusCode === 429 || errorMessage.includes("429") || errorMessage.includes("rate limit")) {
       return NextResponse.json(
         { error: "Rate limit exceeded. Please wait a moment and try again." },
         { status: 429 }
       );
     }
 
-    console.error("AI Coach error:", errorMessage);
     return NextResponse.json(
       { error: "Failed to get AI response. Please try again." },
       { status: 500 }

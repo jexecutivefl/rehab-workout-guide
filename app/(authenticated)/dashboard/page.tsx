@@ -7,7 +7,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/layout/AuthGuard";
 import { getActiveRestrictions } from "@/lib/injuryEngine";
-import { useActiveInjuries, useWorkoutSessions } from "@/hooks/useAmplifyData";
+import {
+  useActiveInjuries,
+  useUserProfile,
+  useWorkoutSessions,
+} from "@/hooks/useAmplifyData";
+import { WegovyStrategyCard } from "@/components/dashboard/WegovyStrategyCard";
 import type { InjuryContext, InjuryStage } from "@/types/index";
 
 /**
@@ -26,6 +31,7 @@ export default function DashboardPage() {
 
   const { data: injuries, isLoading: injuriesLoading } = useActiveInjuries();
   const { data: sessions, isLoading: sessionsLoading } = useWorkoutSessions(50);
+  const { data: userProfile } = useUserProfile();
 
   // Build InjuryContext from real DB records
   const injuryContext = useMemo<InjuryContext>(() => {
@@ -165,6 +171,13 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Wegovy Strategy (only for users on Wegovy) */}
+      {userProfile?.onWegovy && (
+        <div className="mb-8">
+          <WegovyStrategyCard wegovyStartDate={userProfile.wegovyStartDate} />
+        </div>
+      )}
 
       {/* Today's Workout */}
       <div className="mb-8">
